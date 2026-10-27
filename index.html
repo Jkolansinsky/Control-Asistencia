@@ -30,9 +30,10 @@ function chips(){
 }
 const flush=()=>vaciarCola().then(chips).catch(()=>{});
 setInterval(chips,3000);addEventListener('online',()=>{chips();flush();});addEventListener('offline',chips);
-async function loadLedger(){const l=await kv.get('ledger');ledger=l&&l.f===hoyKey()?l:{f:hoyKey(),ids:{}};}
-const done=id=>{if(ledger.f!==hoyKey())ledger={f:hoyKey(),ids:{}};return ledger.ids[id]||[];};
-const mark=async(id,l)=>{ledger.ids[id]=l;await kv.set('ledger',ledger);};
+async function loadLedger(){ledger=(await kv.get('ledger'))||{ids:{}};}
+const done=id=>{const e=ledger.ids[id];return e&&Date.now()-e.ts<576e5?e.l:[];}; // turno abierto (máx. 16 h)
+const mark=async(id,l)=>{ledger.ids[id]={l,ts:Date.now()};await kv.set('ledger',ledger);};
+const nx=(id,h)=>h==='Hora Salida'?[]:[...done(id),h];
 async function cam(){const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});const v=$('v');v.srcObject=s;await v.play();s.getVideoTracks()[0].onended=()=>setTimeout(cam,1500);}
 const wake=async()=>{try{await navigator.wakeLock?.request('screen');}catch{}};
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake();});
@@ -65,14 +66,14 @@ async function loop(){
 }
 function reset(){clearTimeout(timer);$('types').hidden=true;$('cam').className='cam scan';last=null;streak=0;miss=0;msg('Acércate a la cámara','Mira de frente');state='scan';}
 async function reconocido(emp,conf){
-  state='pick';$('cam').className='cam ok';if(navigator.userActivation?.hasBeenActive)navigator.vibrate(60);
+  state='pick';$('cam').className='cam ok';navigator.vibrate?.(60);
   const hecho=done(emp.id),sug=TIPOS.find(t=>!hecho.includes(t[0])),box=$('types');box.innerHTML='';
   TIPOS.forEach(([val,lab])=>{const b=document.createElement('button');b.textContent=lab;b.disabled=hecho.includes(val);if(sug&&sug[0]===val)b.className='sug';b.onclick=()=>registrar(emp,val,conf);box.appendChild(b);});
   box.hidden=false;
   const g=gps&&Date.now()-gps.t<120000?gps:null;
   const q=g?sucs.map(s=>({s,d:hav(g.lat,g.lng,s.lat,s.lng)})).sort((a,b)=>a.d-b.d)[0]:null;
   const aviso=!g?'⚠️ Sin GPS: se registrará sin ubicación':q&&q.d>q.s.radio?'⚠️ Fuera del rango de las sucursales':q&&q.s.nombre!==emp.sucursal?'📍 Estás en '+q.s.nombre+' (asignada: '+emp.sucursal+')':emp.sucursal;
-  msg(sug?'Hola, '+emp.nombre:'Ya completaste tus registros de hoy...'+emp.nombre,aviso);hablar('Hola... '+emp.nombre);
+  msg(sug?'Hola, '+emp.nombre:'Ya completaste tus registros de hoy',aviso);hablar('Hola '+emp.nombre);
   clearTimeout(timer);timer=setTimeout(reset,sug?15000:4000);
 }
 async function registrar(emp,horario,conf){
@@ -81,9 +82,9 @@ async function registrar(emp,horario,conf){
   const op={opId:crypto.randomUUID(),id:emp.id,horario,lat:g&&g.lat,lng:g&&g.lng,acc:g&&g.acc,confianza:+conf.toFixed(3),ts:new Date().toISOString(),origen:'online'};
   const r=await Promise.race([enviar(op),sleep(4000).then(()=>null)]); // la espera máxima percibida es 4 s
   const et=TIPOS.find(t=>t[0]===horario)[1],c=$('cam');
-  if(r&&r.ok){await mark(emp.id,r.hoy||[...done(emp.id),horario]);c.className='cam ok';msg('✅ '+et,emp.nombre+' · '+r.hora+(r.estatus&&r.estatus!=='OK'?' · '+r.estatus:''));hablar('Registro correcto');}
-  else if(r&&r.code==='YA_REGISTRADO'){await mark(emp.id,r.hoy||[...done(emp.id),horario]);c.className='cam er';msg('⚠️ Ya estaba registrada',r.msg);}
-  else if(!r||['NET','SERVER','LIC'].includes(r.code)||String(r.code).startsWith('AUTH')){await mark(emp.id,[...done(emp.id),horario]);c.className='cam ok';msg('✅ Guardado en el dispositivo','Se enviará automáticamente');}
+  if(r&&r.ok){await mark(emp.id,r.hoy||nx(emp.id,horario));c.className='cam ok';msg('✅ '+et,emp.nombre+' · '+r.hora+(r.estatus&&r.estatus!=='OK'?' · '+r.estatus:''));hablar('Registro correcto');}
+  else if(r&&r.code==='YA_REGISTRADO'){await mark(emp.id,r.hoy||nx(emp.id,horario));c.className='cam er';msg('⚠️ Ya estaba registrada',r.msg);}
+  else if(!r||['NET','SERVER','LIC'].includes(r.code)||String(r.code).startsWith('AUTH')){await mark(emp.id,nx(emp.id,horario));c.className='cam ok';msg('✅ Guardado en el dispositivo','Se enviará automáticamente');}
   else{c.className='cam er';msg('❌ '+(r.msg||'Error'),emp.nombre);hablar('No se pudo registrar');}
   chips();await sleep(2500);reset();
 }
