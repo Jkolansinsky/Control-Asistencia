@@ -73,7 +73,7 @@ async function reconocido(emp,conf){
   const g=gps&&Date.now()-gps.t<120000?gps:null;
   const q=g?sucs.map(s=>({s,d:hav(g.lat,g.lng,s.lat,s.lng)})).sort((a,b)=>a.d-b.d)[0]:null;
   const aviso=!g?'⚠️ Sin GPS: se registrará sin ubicación':q&&q.d>q.s.radio?'⚠️ Fuera del rango de las sucursales':q&&q.s.nombre!==emp.sucursal?'📍 Estás en '+q.s.nombre+' (asignada: '+emp.sucursal+')':emp.sucursal;
-  msg(sug?'Hola..., '+emp.nombre:'Ya completaste tus registros de hoy',aviso);hablar('Hola... '+emp.nombre);
+  msg(sug?'Hola, '+emp.nombre:'Ya completaste tus registros de hoy',aviso);hablar('Hola '+emp.nombre);
   clearTimeout(timer);timer=setTimeout(reset,sug?15000:4000);
 }
 async function registrar(emp,horario,conf){
