@@ -35,7 +35,7 @@ export async function enviar(op){await queue.add(op);const r=await call('registr
 export async function vaciarCola(){for(const op of await queue.all()){const r=await call('registrar',{...op,origen:'diferido'});if(r.ok||DEF.includes(r.code))await queue.del(op.opId);else if(r.code==='NET')break;}}
 export const pendientes=async()=>(await queue.all()).length;
 // ---- Rostro (solo descriptores numéricos, nunca fotos) ----
-export const loadFace=()=>Promise.all([faceapi.nets.tinyFaceDetector,faceapi.nets.faceLandmark68Net,faceapi.nets.faceRecognitionNet].map(n=>n.loadFromUri(CFG.MODELS)));
+export const loadFace=()=>Promise.all([faceapi.nets.tinyFaceDetector,faceapi.nets.faceLandmark68Net,faceapi.nets.faceRecognitionNet].map(n=>n.loadFromUri(MODELS)));
 export const describe=el=>faceapi.detectSingleFace(el,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})).withFaceLandmarks().withFaceDescriptor();
 export const dist=(a,b)=>{let s=0;for(let i=0;i<128;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);};
 export function match(d,emps){
