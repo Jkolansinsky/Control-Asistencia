@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Administración · Asistencia</title><link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+</head><body>
+<section id="lg" class="screen"><div class="card"><h2>Administración</h2>
+<input id="u" placeholder="Usuario" autocomplete="username"><input id="p" type="password" placeholder="Contraseña" autocomplete="current-password">
+<button id="go" class="pri">Entrar</button><p id="lm" role="status"></p><a href="index.html">← Volver al registro</a></div></section>
+<div id="ad" hidden style="max-width:640px;margin:0 auto;padding:16px;display:grid;gap:14px">
+<div class="card"><h3>Alta o edición de empleado</h3>
+<div class="row"><input id="id" placeholder="ID (3-12)" maxlength="12" autocapitalize="characters"><select id="st"><option>Alta</option><option>Baja</option></select></div>
+<input id="nom" placeholder="Nombre completo"><div class="row"><select id="suc"></select><input id="pue" placeholder="Puesto"></div>
+<div class="cam" style="height:280px"><video id="v" playsinline muted autoplay></video></div>
+<button id="cap">📸 Capturar rostro (3 tomas)</button>
+<label>o subir una foto (no se guarda): <input id="fil" type="file" accept="image/*"></label>
+<button id="sav" class="pri">Guardar empleado</button><p id="am" role="status"></p></div>
+<div class="card"><h3>Migrar fotos antiguas</h3><p>Convierte las fotos de la hoja BD en descriptores y borra la foto de la celda.</p>
+<button id="mig">Convertir fotos de la hoja BD</button><pre id="log"></pre></div></div>
+<script type="module">
+import {call,login,sync,loadFace,describe,dist} from './core.js';
+const $=i=>document.getElementById(i),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+let adm=null,ds=null,data=null;
+$('go').onclick=async()=>{
+  const lic=localStorage.getItem('ac_lic');if(!lic){$('lm').textContent='Primero activa este dispositivo en index.html';return;}
+  $('lm').textContent='Validando…';await login(lic);
+  const r=await call('adminLogin',{usuario:$('u').value,password:$('p').value});
+  if(!r.ok){$('lm').textContent='❌ '+r.msg;return;}
+  adm=r.adminToken;$('lg').hidden=true;$('ad').hidden=false;init();
+};
+async function init(){
+  $('am').textContent='Cargando modelos…';await loadFace();data=await sync();
+  ((data&&data.sucursales)||[]).forEach(s=>$('suc').add(new Option(s.nombre,s.nombre)));
+  try{$('v').srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'}});$('am').textContent='Listo';}catch{$('am').textContent='⚠️ Permite la cámara o sube una foto';}
+}
+function revisar(){
+  const id=$('id').value.trim().toUpperCase();
+  const o=((data&&data.empleados)||[]).find(e=>e.id!==id&&JSON.parse(e.d).some(x=>ds.some(y=>dist(x,y)<0.45)));
+  $('am').textContent=o?'⚠️ Este rostro se parece a '+o.nombre+' ('+o.id+'). Verifica antes de guardar.':'✅ Rostro capturado';
+}
+$('cap').onclick=async()=>{
+  ds=null;const t=[];$('am').textContent='Mira de frente y mueve un poco la cabeza…';
+  for(let i=0;i<3;i++){
+    let d=null;for(let k=0;k<8&&!d;k++){const x=await describe($('v'));if(x&&x.detection.score>0.6)d=x;else await sleep(300);}
+    if(!d){$('am').textContent='❌ No se detectó el rostro. Mejora la luz.';return;}
+    t.push(Array.from(d.descriptor));await sleep(700);
+  }
+  if(dist(t[0],t[1])>0.5||dist(t[0],t[2])>0.5){$('am').textContent='❌ Tomas inconsistentes. Repite.';return;}
+  ds=t;revisar();
+};
+$('fil').onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;const img=new Image();img.src=URL.createObjectURL(f);await img.decode();
+  const x=await describe(img);URL.revokeObjectURL(img.src);
+  if(!x){$('am').textContent='❌ No se detectó rostro en la foto';return;}
+  ds=[Array.from(x.descriptor)];revisar();
+};
+$('sav').onclick=async()=>{
+  const b={adminToken:adm,id:$('id').value.trim(),nombre:$('nom').value.trim(),sucursal:$('suc').value,puesto:$('pue').value.trim(),status:$('st').value,descriptors:ds||undefined};
+  if(!b.id){$('am').textContent='Captura el ID';return;}
+  $('sav').disabled=true;const r=await call('guardarEmpleado',b);$('sav').disabled=false;
+  $('am').textContent=r.ok?'✅ Guardado. Las tablets lo recibirán en minutos.':'❌ '+r.msg;
+  if(r.ok){ds=null;['id','nom','pue'].forEach(i=>$(i).value='');data=await sync();}
+};
+$('mig').onclick=async()=>{
+  const L=t=>{$('log').textContent+=t+'\n';};$('mig').disabled=true;const skip=[];let ok=0;
+  for(;;){
+    const r=await call('legacyLote',{adminToken:adm,skip});
+    if(!r.ok){L('❌ '+r.msg);break;}
+    if(!r.lote.length){L('✔ Terminado: '+ok+' migrados, '+skip.length+' omitidos');break;}
+    for(const e of r.lote){
+      try{
+        const img=new Image();img.src=e.foto;await img.decode();let x=await describe(img);
+        if(!x){const c=document.createElement('canvas');c.width=c.height=Math.max(img.width,img.height);c.getContext('2d').drawImage(img,0,0);x=await describe(c);}
+        if(!x)throw 0;const g=await call('guardarEmpleado',{adminToken:adm,id:e.id,descriptors:[Array.from(x.descriptor)]});
+        if(!g.ok)throw 0;ok++;L('✅ '+e.id);
+      }catch{skip.push(e.id);L('⚠️ '+e.id+': sin rostro detectable, vuelve a darlo de alta');}
+    }
+  }
+  $('mig').disabled=false;
+};
+</script></body></html>

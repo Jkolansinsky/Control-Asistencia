@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Control de Asistencia</title><meta name="theme-color" content="#0f172a">
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><link rel="stylesheet" href="styles.css">
+<script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+</head><body>
+<section id="act" class="screen" hidden><div class="card"><h2>Activar dispositivo</h2>
+<input id="lic" placeholder="Código de licencia (LIC-001)" autocapitalize="characters" autocomplete="off">
+<button id="actBtn" class="pri">Activar</button><p id="actMsg" role="status"></p></div></section>
+<div id="app" hidden>
+<header><div id="clock">--:--:--</div><div class="chips"><span class="chip" id="cNet"></span><span class="chip" id="cGps"></span><span class="chip" id="cPend" hidden></span><button class="chip" id="voz" aria-label="Voz">🔇</button></div></header>
+<main><div class="cam scan" id="cam"><video id="v" playsinline muted autoplay></video></div>
+<div class="panel"><div id="msg" role="status" aria-live="polite">Cargando…</div><div class="types" id="types" hidden></div></div></main></div>
+<script type="module">
+import {CFG,kv,login,sync,enviar,vaciarCola,pendientes,loadFace,describe,match,hav,watchGPS,hoyKey} from './core.js';
+const $=i=>document.getElementById(i),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const TIPOS=[['Hora Entrada','🟢 Entrada'],['Salida Comida','🍽️ Salir a comer'],['Entrada Comida','↩️ Regreso de comer'],['Hora Salida','🔴 Salida']];
+let emps=[],sucs=[],gps=null,state='load',ledger={f:'',ids:{}},voz=localStorage.getItem('ac_voz')==='1',timer=null,last=null,streak=0,miss=0;
+function msg(t,s){const m=$('msg');m.textContent=t;if(s){const e=document.createElement('small');e.textContent=s;m.appendChild(e);}}
+const hablar=t=>{if(!voz||!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(t);u.lang='es-MX';speechSynthesis.cancel();speechSynthesis.speak(u);};
+$('voz').textContent=voz?'🔊':'🔇';
+$('voz').onclick=()=>{voz=!voz;localStorage.setItem('ac_voz',voz?'1':'0');$('voz').textContent=voz?'🔊':'🔇';hablar('Voz activada');};
+setInterval(()=>{$('clock').textContent=new Date().toLocaleTimeString('es-MX',{hour12:false});},1000);
+function chips(){
+  const n=navigator.onLine;$('cNet').textContent=n?'● En línea':'● Sin conexión';$('cNet').className='chip '+(n?'ok':'er');
+  const g=$('cGps');if(gps&&Date.now()-gps.t<120000){g.textContent='📍 ±'+Math.round(gps.acc)+' m';g.className='chip '+(gps.acc<=CFG.ACC_MAX?'ok':'wa');}else{g.textContent='📍 Sin GPS';g.className='chip er';}
+  pendientes().then(k=>{const c=$('cPend');c.hidden=!k;c.textContent='⏳ '+k+' por enviar';c.className='chip wa';});
+}
+const flush=()=>vaciarCola().then(chips).catch(()=>{});
+setInterval(chips,3000);addEventListener('online',()=>{chips();flush();});addEventListener('offline',chips);
+async function loadLedger(){const l=await kv.get('ledger');ledger=l&&l.f===hoyKey()?l:{f:hoyKey(),ids:{}};}
+const done=id=>{if(ledger.f!==hoyKey())ledger={f:hoyKey(),ids:{}};return ledger.ids[id]||[];};
+const mark=async(id,l)=>{ledger.ids[id]=l;await kv.set('ledger',ledger);};
+async function cam(){const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});const v=$('v');v.srcObject=s;await v.play();s.getVideoTracks()[0].onended=()=>setTimeout(cam,1500);}
+const wake=async()=>{try{await navigator.wakeLock?.request('screen');}catch{}};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)wake();});
+async function refresh(){const d=await sync();if(d&&d.empleados){emps=d.empleados.map(e=>({...e,d:JSON.parse(e.d)}));sucs=d.sucursales||[];}}
+async function boot(){
+  $('act').hidden=true;$('app').hidden=false;chips();
+  try{await cam();}catch{return msg('⚠️ Permite el acceso a la cámara','Ajustes del navegador → Permisos → Cámara');}
+  watchGPS(p=>{gps=p;chips();});wake();msg('Cargando reconocimiento facial…');
+  try{await Promise.all([loadFace(),refresh()]);}catch(e){return msg('❌ No se pudieron cargar los modelos','Revisa la conexión y recarga');}
+  if(!emps.length)return msg('Sin empleados con rostro registrado','Da de alta empleados en admin.html');
+  await loadLedger();reset();loop();setInterval(flush,20000);setInterval(refresh,30*60000);flush();
+}
+async function loop(){
+  const v=$('v');
+  for(;;){
+    if(state!=='scan'||document.hidden){await sleep(300);continue;}
+    const t=performance.now();
+    try{
+      const d=await describe(v);
+      if(!d){streak=0;miss=0;last=null;if($('cam').className!=='cam scan'){$('cam').className='cam scan';msg('Acércate a la cámara','Mira de frente');}}
+      else if(d.detection.box.width<v.videoWidth*0.22){msg('Acércate un poco más');streak=0;}
+      else{
+        const m=match(Array.from(d.descriptor),emps);
+        if(m){if(m.emp.id===last)streak++;else{last=m.emp.id;streak=1;}miss=0;if(streak>=2){await reconocido(m.emp,m.dist);continue;}}
+        else{streak=0;last=null;if(++miss>=4){$('cam').className='cam er';msg('No te reconozco','Mejora la luz y mira de frente');}}
+      }
+    }catch(e){console.error(e);}
+    await sleep(Math.max(100,350-(performance.now()-t)));
+  }
+}
+function reset(){clearTimeout(timer);$('types').hidden=true;$('cam').className='cam scan';last=null;streak=0;miss=0;msg('Acércate a la cámara','Mira de frente');state='scan';}
+async function reconocido(emp,conf){
+  state='pick';$('cam').className='cam ok';navigator.vibrate?.(60);
+  const hecho=done(emp.id),sug=TIPOS.find(t=>!hecho.includes(t[0])),box=$('types');box.innerHTML='';
+  TIPOS.forEach(([val,lab])=>{const b=document.createElement('button');b.textContent=lab;b.disabled=hecho.includes(val);if(sug&&sug[0]===val)b.className='sug';b.onclick=()=>registrar(emp,val,conf);box.appendChild(b);});
+  box.hidden=false;
+  const g=gps&&Date.now()-gps.t<120000?gps:null;
+  const q=g?sucs.map(s=>({s,d:hav(g.lat,g.lng,s.lat,s.lng)})).sort((a,b)=>a.d-b.d)[0]:null;
+  const aviso=!g?'⚠️ Sin GPS: se registrará sin ubicación':q&&q.d>q.s.radio?'⚠️ Fuera del rango de las sucursales':q&&q.s.nombre!==emp.sucursal?'📍 Estás en '+q.s.nombre+' (asignada: '+emp.sucursal+')':emp.sucursal;
+  msg(sug?'Hola, '+emp.nombre:'Ya completaste tus registros de hoy',aviso);hablar('Hola '+emp.nombre);
+  clearTimeout(timer);timer=setTimeout(reset,sug?15000:4000);
+}
+async function registrar(emp,horario,conf){
+  if(state!=='pick')return;state='send';clearTimeout(timer);$('types').hidden=true;msg('Registrando…');
+  const g=gps&&Date.now()-gps.t<120000?gps:null;
+  const op={opId:crypto.randomUUID(),id:emp.id,horario,lat:g&&g.lat,lng:g&&g.lng,acc:g&&g.acc,confianza:+conf.toFixed(3),ts:new Date().toISOString(),origen:'online'};
+  const r=await Promise.race([enviar(op),sleep(4000).then(()=>null)]); // la espera máxima percibida es 4 s
+  const et=TIPOS.find(t=>t[0]===horario)[1],c=$('cam');
+  if(r&&r.ok){await mark(emp.id,r.hoy||[...done(emp.id),horario]);c.className='cam ok';msg('✅ '+et,emp.nombre+' · '+r.hora+(r.estatus&&r.estatus!=='OK'?' · '+r.estatus:''));hablar('Registro correcto');}
+  else if(r&&r.code==='YA_REGISTRADO'){await mark(emp.id,r.hoy||[...done(emp.id),horario]);c.className='cam er';msg('⚠️ Ya estaba registrada',r.msg);}
+  else if(!r||['NET','SERVER','LIC'].includes(r.code)||String(r.code).startsWith('AUTH')){await mark(emp.id,[...done(emp.id),horario]);c.className='cam ok';msg('✅ Guardado en el dispositivo','Se enviará automáticamente');}
+  else{c.className='cam er';msg('❌ '+(r.msg||'Error'),emp.nombre);hablar('No se pudo registrar');}
+  chips();await sleep(2500);reset();
+}
+$('actBtn').onclick=async()=>{const id=$('lic').value.trim().toUpperCase();if(!id)return;$('actBtn').disabled=true;$('actMsg').textContent='Validando…';const r=await login(id);$('actBtn').disabled=false;if(r.ok)boot();else $('actMsg').textContent='❌ '+(r.msg||'Error');};
+(async()=>{
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+  const id=localStorage.getItem('ac_lic');if(!id){$('act').hidden=false;return;}
+  const r=await login(id);
+  if(r.ok||r.code==='NET')boot();else{localStorage.removeItem('ac_lic');$('act').hidden=false;$('actMsg').textContent='❌ '+r.msg;}
+})();
+</script></body></html>
