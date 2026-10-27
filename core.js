@@ -1,6 +1,6 @@
 // Núcleo compartido: configuración, API, almacenamiento local, cola offline, rostro, GPS.
 export const CFG={
-  API:'https://script.google.com/macros/s/AKfycbwoCORCUaQlfZnIqy6KxdNn3zhHS72HpXJu2o24C9xUARJyZmFvjEPQdkdynFBqjSVdVA/exec',
+  API:'https://script.google.com/macros/s/AKfycby9PepTsDIn30G09B5bgPgStGskrej0pLuXFc8B4Tqiw_5T0gBYMjAslYubaY-aqRDylw/exec',
   MODELS:'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/', // mejor: copia /model a tu repo y usa 'models/'
   UMBRAL:0.5, MARGEN:0.04, ACC_MAX:150
 };
