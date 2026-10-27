@@ -65,7 +65,7 @@ async function loop(){
 }
 function reset(){clearTimeout(timer);$('types').hidden=true;$('cam').className='cam scan';last=null;streak=0;miss=0;msg('Acércate a la cámara','Mira de frente');state='scan';}
 async function reconocido(emp,conf){
-  state='pick';$('cam').className='cam ok';navigator.vibrate?.(60);
+  state='pick';$('cam').className='cam ok';if(navigator.userActivation?.hasBeenActive)navigator.vibrate(60);
   const hecho=done(emp.id),sug=TIPOS.find(t=>!hecho.includes(t[0])),box=$('types');box.innerHTML='';
   TIPOS.forEach(([val,lab])=>{const b=document.createElement('button');b.textContent=lab;b.disabled=hecho.includes(val);if(sug&&sug[0]===val)b.className='sug';b.onclick=()=>registrar(emp,val,conf);box.appendChild(b);});
   box.hidden=false;
