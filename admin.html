@@ -14,6 +14,7 @@
 <div class="cam" style="height:280px"><video id="v" playsinline muted autoplay></video></div>
 <button id="cap">📸 Capturar rostro (3 tomas)</button>
 <label>o subir una foto (no se guarda): <input id="fil" type="file" accept="image/*"></label>
+<label><input type="checkbox" id="cons" style="min-height:auto"> El empleado firmó el consentimiento expreso por escrito (<a href="aviso.html" target="_blank">ver formato</a>)</label>
 <button id="sav" class="pri">Guardar empleado</button><p id="am" role="status"></p></div>
 <div class="card"><h3>Migrar fotos antiguas</h3><p>Convierte las fotos de la hoja BD en descriptores y borra la foto de la celda.</p>
 <button id="mig">Convertir fotos de la hoja BD</button><pre id="log"></pre></div></div>
@@ -55,11 +56,11 @@ $('fil').onchange=async e=>{
   ds=[Array.from(x.descriptor)];revisar();
 };
 $('sav').onclick=async()=>{
-  const b={adminToken:adm,id:$('id').value.trim(),nombre:$('nom').value.trim(),sucursal:$('suc').value,puesto:$('pue').value.trim(),status:$('st').value,descriptors:ds||undefined};
+  const b={adminToken:adm,id:$('id').value.trim(),nombre:$('nom').value.trim(),sucursal:$('suc').value,puesto:$('pue').value.trim(),status:$('st').value,descriptors:ds||undefined,consent:$('cons').checked};
   if(!b.id){$('am').textContent='Captura el ID';return;}
   $('sav').disabled=true;const r=await call('guardarEmpleado',b);$('sav').disabled=false;
   $('am').textContent=r.ok?'✅ Guardado. Las tablets lo recibirán en minutos.':'❌ '+r.msg;
-  if(r.ok){ds=null;['id','nom','pue'].forEach(i=>$(i).value='');data=await sync();}
+  if(r.ok){ds=null;$('cons').checked=false;['id','nom','pue'].forEach(i=>$(i).value='');data=await sync();}
 };
 $('mig').onclick=async()=>{
   const L=t=>{$('log').textContent+=t+'\n';};$('mig').disabled=true;const skip=[];let ok=0;

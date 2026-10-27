@@ -8,9 +8,9 @@
 </head><body>
 <section id="act" class="screen" hidden><div class="card"><h2>Activar dispositivo</h2>
 <input id="lic" placeholder="Código de licencia (LIC-001)" autocapitalize="characters" autocomplete="off">
-<button id="actBtn" class="pri">Activar</button><p id="actMsg" role="status"></p></div></section>
+<button id="actBtn" class="pri">Activar</button><p id="actMsg" role="status"></p><a href="aviso.html" target="_blank">Aviso de privacidad</a></div></section>
 <div id="app" hidden>
-<header><div id="clock">--:--:--</div><div class="chips"><span class="chip" id="cNet"></span><span class="chip" id="cGps"></span><span class="chip" id="cPend" hidden></span><button class="chip" id="voz" aria-label="Voz">🔇</button></div></header>
+<header><div id="clock">--:--:--</div><div class="chips"><a class="chip" href="aviso.html" target="_blank">Aviso de privacidad</a><span class="chip" id="cNet"></span><span class="chip" id="cGps"></span><span class="chip" id="cPend" hidden></span><button class="chip" id="voz" aria-label="Voz">🔇</button></div></header>
 <main><div class="cam scan" id="cam"><video id="v" playsinline muted autoplay></video></div>
 <div class="panel"><div id="msg" role="status" aria-live="polite">Cargando…</div><div class="types" id="types" hidden></div></div></main></div>
 <script type="module">
