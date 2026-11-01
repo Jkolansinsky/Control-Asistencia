@@ -17,3 +17,9 @@
 1. En cada celular/tablet abre la URL, escribe la licencia y activa. Usa "Agregar a pantalla de inicio".
 2. Abre `admin.html` (usuario y contraseña de tu hoja admin; la contraseña en texto plano se convierte a hash en el primer ingreso).
 3. Panel → **Migrar fotos antiguas** (una vez). Luego da de alta nuevos empleados con rostro.
+
+## 4. Reportes PDF para gerentes (reporte.html)
+1. En la hoja **admin** las columnas G y H son `Rol` y `Sucursal` (las crea `configuracionInicial()`). Los usuarios actuales sin rol son administradores (ven todas las sucursales).
+2. Para cada gerente de franquicia: edita `U`, `CLAVE` y `SUC` en `crearGerente()` (Code.gs), ejecútala una vez y borra la clave del código.
+3. Dales la URL `https://TU_USUARIO.github.io/TU_REPO/reporte.html`. Entran con su usuario y contraseña desde su celular.
+4. Ejecuta cualquier función del editor para autorizar los permisos nuevos (Drive y conexión externa) y publica una **nueva versión** de la implementación.
