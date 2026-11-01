@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Reporte de asistencia</title><meta name="theme-color" content="#2563eb"><link rel="stylesheet" href="styles.css">
+</head><body>
+<section id="lg" class="screen"><div class="card"><h2>Reporte de asistencia</h2>
+<input id="u" placeholder="Usuario" autocomplete="username" autocapitalize="none"><input id="p" type="password" placeholder="Contraseña" autocomplete="current-password">
+<button id="go" class="pri">Entrar</button><p id="lm" role="status"></p></div></section>
+<section id="fm" class="screen" hidden><div class="card">
+<h2>Descargar reporte en PDF</h2><p id="who" style="color:var(--mu)"></p>
+<label>Sucursal <select id="suc"></select></label>
+<div class="row"><button data-q="s0">Semana actual<br><small>jue → mié</small></button><button data-q="s1">Semana anterior<br><small>jue → mié</small></button></div>
+<div class="row"><button data-q="q0">Quincena actual</button><button data-q="q1">Quincena anterior</button></div>
+<div class="row"><label>Del <input id="ini" type="date"></label><label>Al <input id="fin" type="date"></label></div>
+<label id="mw" hidden>Mostrar <select id="modo"><option>Personal asignado a la sucursal</option><option>Registros hechos en la sucursal</option></select></label>
+<button id="pdf" class="pri">Generar PDF</button><p id="st" role="status"></p>
+<div id="res" class="row" hidden><a id="ver" class="chip" target="_blank">📄 Abrir PDF</a><a id="dl" class="chip">⬇️ Descargar</a><button id="sh" hidden>📤 Compartir</button></div>
+<button id="out">Salir</button></div></section>
+<script type="module">
+import {CFG} from './core.js';
+const $=i=>document.getElementById(i);let tok=sessionStorage.getItem('rep_tok'),info=JSON.parse(sessionStorage.getItem('rep_info')||'null');
+async function api(action,data){
+  const c=new AbortController(),t=setTimeout(()=>c.abort(),170000);
+  try{const r=await fetch(CFG.API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,token:tok,...data}),signal:c.signal});return await r.json();}
+  catch{return {ok:false,code:'NET',msg:'Sin conexión o tiempo agotado. Intenta de nuevo.'};}finally{clearTimeout(t);}
+}
+const iso=d=>d.toLocaleDateString('sv'),noon=()=>{const t=new Date();t.setHours(12,0,0,0);return t;};
+function rango(q){
+  const t=noon();
+  if(q[0]==='s'){const ini=new Date(t);ini.setDate(t.getDate()-((t.getDay()-4+7)%7)-(q==='s1'?7:0));const fin=new Date(ini);fin.setDate(ini.getDate()+6);return [ini,fin];} // jueves a miércoles
+  let y=t.getFullYear(),m=t.getMonth(),prim=t.getDate()<=15;
+  if(q==='q1'){if(prim){m--;if(m<0){m=11;y--;}prim=false;}else prim=true;}
+  return prim?[new Date(y,m,1),new Date(y,m,15)]:[new Date(y,m,16),new Date(y,m+1,0)];
+}
+document.querySelectorAll('[data-q]').forEach(b=>b.onclick=()=>{const [a,z]=rango(b.dataset.q);$('ini').value=iso(a);$('fin').value=iso(z);});
+function show(){
+  $('lg').hidden=!!tok;$('fm').hidden=!tok;if(!tok)return;
+  $('who').textContent=info.usuario+(info.rol==='gerente'?' · '+info.sucursales[0]:' · Administrador');
+  $('suc').innerHTML='';info.sucursales.forEach(s=>$('suc').add(new Option(s,s)));$('suc').disabled=info.rol!=='admin';$('mw').hidden=info.rol!=='admin';
+  if(!$('ini').value){const [a,z]=rango('s0');$('ini').value=iso(a);$('fin').value=iso(z);}
+}
+$('go').onclick=async()=>{
+  $('lm').textContent='Validando…';const r=await api('reporteLogin',{usuario:$('u').value.trim(),password:$('p').value});
+  if(!r.ok){$('lm').textContent='❌ '+r.msg;return;}
+  tok=r.token;info=r;sessionStorage.setItem('rep_tok',tok);sessionStorage.setItem('rep_info',JSON.stringify(r));$('p').value='';show();
+};
+$('out').onclick=()=>{sessionStorage.clear();tok=null;location.reload();};
+$('pdf').onclick=async()=>{
+  $('pdf').disabled=true;$('res').hidden=true;$('st').textContent='⏳ Generando PDF… puede tardar hasta 1 minuto. No cierres esta pantalla.';
+  const r=await api('reportePdf',{ini:$('ini').value,fin:$('fin').value,sucursal:$('suc').value,modo:$('modo').value});
+  $('pdf').disabled=false;
+  if(!r.ok){if(r.code==='AUTH'||r.code==='AUTH_EXPIRED'){sessionStorage.clear();tok=null;show();$('lm').textContent='Sesión vencida. Entra de nuevo.';return;}$('st').textContent='❌ '+r.msg;return;}
+  const f=new File([Uint8Array.from(atob(r.pdf),c=>c.charCodeAt(0))],r.nombre,{type:'application/pdf'}),u=URL.createObjectURL(f);
+  $('ver').href=u;$('dl').href=u;$('dl').download=r.nombre;$('res').hidden=false;$('st').textContent='✅ Listo: '+r.nombre;
+  $('sh').hidden=!(navigator.canShare&&navigator.canShare({files:[f]}));$('sh').onclick=()=>navigator.share({files:[f],title:r.nombre}).catch(()=>{});
+};
+show();
+</script></body></html>
