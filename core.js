@@ -1,6 +1,6 @@
 // Núcleo compartido: configuración, API, almacenamiento local, cola offline, rostro, GPS.
 export const CFG={
-  API:'https://script.google.com/macros/s/AKfycbz7rxFgAz1st1OSpFDMujFThVOVILe1Ij38bw77M5C5Js6KTDSpt5JrHh-cGSYcrSnYow/exec',
+  API:'https://script.google.com/macros/s/AKfycbxGTYY17hCj5JFdTWPEzXx3hG9DFFiTRqTf-TA6O5AwV7-kH8-GmUo7j2xkGuXlq6O-zQ/exec',
   MODELS:'./models/', // carpeta models/ en la raíz del repo, junto a index.html
   UMBRAL:0.5, MARGEN:0.04, ACC_MAX:150
 };
