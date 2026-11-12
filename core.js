@@ -1,6 +1,6 @@
 // Núcleo compartido: configuración, API, almacenamiento local, cola offline, rostro, GPS.
 export const CFG={
-  API:'https://script.google.com/macros/s/AKfycbzHocnXWCjm6IlxdMos4DlrKDrsahNeJEkS7jv7RWZDHJ1wdMNrdwi-ItFBd84Np1mB/exec',
+  API:'PEGA_AQUI_LA_URL_DE_TU_WEB_APP_DE_APPS_SCRIPT',
   MODELS:'./models/', // carpeta models/ en la raíz del repo, junto a index.html
   UMBRAL:0.5, MARGEN:0.04, ACC_MAX:150
 };
@@ -37,6 +37,8 @@ export const pendientes=async()=>(await queue.all()).length;
 // ---- Rostro (solo descriptores numéricos, nunca fotos) ----
 export const loadFace=()=>Promise.all([faceapi.nets.tinyFaceDetector,faceapi.nets.faceLandmark68Net,faceapi.nets.faceRecognitionNet].map(n=>n.loadFromUri(CFG.MODELS)));
 export const describe=el=>faceapi.detectSingleFace(el,new faceapi.TinyFaceDetectorOptions({inputSize:320,scoreThreshold:0.5})).withFaceLandmarks().withFaceDescriptor();
+export const landmarks=el=>faceapi.detectSingleFace(el,new faceapi.TinyFaceDetectorOptions({inputSize:224,scoreThreshold:0.5})).withFaceLandmarks();
+export const yaw=l=>{const p=l.positions;return (p[30].x-p[0].x)/(p[16].x-p[0].x);}; // ~0.5 de frente; <0.5 gira a su derecha; >0.5 a su izquierda
 export const dist=(a,b)=>{let s=0;for(let i=0;i<128;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);};
 export function match(d,emps){
   let best=null,bd=9,sd=9;
