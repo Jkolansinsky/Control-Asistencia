@@ -74,12 +74,12 @@ async function reto(emp){
   while(Date.now()-t0<9000){
     const d=await landmarks(v);if(!d){await sleep(60);continue;}
     const y=yaw(d.landmarks);
-    if(!girado){if(Math.abs(y-.5)<.1)frontal=true;if(frontal&&(dir==='derecha'?y<.37:y>.63)){girado=true;msg('✔ Bien','Ahora mira al frente');}}
+    if(!girado){if(Math.abs(y-.5)<.1)frontal=true;if(frontal&&(dir==='derecha'?y<.37:y>.63)){girado=true;msg('✔ Bien','Ahora mira al frente');hablar('..Ahora mira al frente');}}
     else if(Math.abs(y-.5)<.08){const f=await describe(v);if(f){const m=match(Array.from(f.descriptor),emps);if(m&&m.emp.id===emp.id)return m.dist;break;}}
   }
-  $('cam').className='cam er';msg('No se pudo verificar','Mira de frente a la cámara e intenta de nuevo');await sleep(2500);reset();return null;
+  $('cam').className='cam er';msg('No se pudo verificar','Mira de frente a la cámara e intenta de nuevo');hablar('Mira de frente a la cámara e intenta de nuevo');await sleep(2500);reset();return null;
 }
-function reset(){clearTimeout(timer);$('types').hidden=true;$('cam').className='cam scan';last=null;streak=0;miss=0;msg('Acércate a la cámara','Mira de frente');state='scan';}
+function reset(){clearTimeout(timer);$('types').hidden=true;$('cam').className='cam scan';last=null;streak=0;miss=0;msg('Acércate a la cámara','Mira de frente');hablar('Mira de frente');state='scan';}
 async function reconocido(emp,conf){
   state='pick';$('cam').className='cam ok';navigator.vibrate?.(60);
   const hecho=done(emp.id),sug=TIPOS.find(t=>!hecho.includes(t[0])),box=$('types');box.innerHTML='';
@@ -88,7 +88,7 @@ async function reconocido(emp,conf){
   const g=gps&&Date.now()-gps.t<120000?gps:null;
   const q=g?sucs.map(s=>({s,d:hav(g.lat,g.lng,s.lat,s.lng)})).sort((a,b)=>a.d-b.d)[0]:null;
   const aviso=!g?'⚠️ Sin GPS: se registrará sin ubicación':q&&q.d>q.s.radio?'⚠️ Fuera del rango de las sucursales':q&&q.s.nombre!==emp.sucursal?'📍 Estás en '+q.s.nombre+' (asignada: '+emp.sucursal+')':emp.sucursal;
-  msg(sug?'Hola, '+emp.nombre:'Ya completaste tus registros de hoy',aviso);hablar('Hola '+emp.nombre);
+  msg(sug?'Hola, '+emp.nombre:'Ya completaste tus registros de hoy',aviso);hablar('..Hola '+emp.nombre);
   clearTimeout(timer);timer=setTimeout(reset,sug?15000:4000);
 }
 async function registrar(emp,horario,conf){
