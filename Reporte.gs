@@ -58,13 +58,8 @@ function dibujarReporte_(sh,o){
   const dias=[]; for(let k=k0,i=0;k<=k1&&i<40;k=dia(k,1),i++) dias.push(k);
   if(dias.length>31) return {ok:false,msg:'⚠️ Máximo 31 días por reporte'};
   const H=CFG.HORARIOS, nd=dias.length, TC=7+nd, hoyK=fk_(new Date());
-  // ---- 1. leer registros del rango (±1 día por turnos que cruzan la medianoche) ----
-  const reg=ss.getSheetByName('Registros'), last=reg.getLastRow(); let rows=[];
-  if(last>=2){
-    const g=reg.getRange(2,7,last-1,1).getValues(), m0=dia(k0,-1), m1=dia(k1,1); let a=-1,b=-1;
-    g.forEach((v,i)=>{const k=fk_(v[0]); if(k>=m0&&k<=m1){if(a<0)a=i;b=i;}});
-    if(a>=0) rows=reg.getRange(a+2,1,b-a+1,Math.min(20,reg.getMaxColumns())).getValues();
-  }
+  // ---- 1. leer registros del rango (±1 día por turnos que cruzan la medianoche): hoja principal + archivo histórico ----
+  const rows=leerRegistros_(dia(k0,-1),dia(k1,1));
   // ---- 2. agrupar por empleado y JORNADA ----
   const bd=empMap_(), E={};
   const get=(id,n)=>E[id]||(E[id]={id,nombre:n||(bd[id]?bd[id].n:id),asig:bd[id]?bd[id].s:'',d:{}});

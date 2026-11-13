@@ -23,3 +23,9 @@
 2. Para cada gerente de franquicia: edita `U`, `CLAVE` y `SUC` en `crearGerente()` (Code.gs), ejecútala una vez y borra la clave del código.
 3. Dales la URL `https://TU_USUARIO.github.io/TU_REPO/reporte.html`. Entran con su usuario y contraseña desde su celular.
 4. Ejecuta cualquier función del editor para autorizar los permisos nuevos (Drive y conexión externa) y publica una **nueva versión** de la implementación.
+
+## 5. Archivo mensual de registros (Archivo.gs)
+1. Agrega `Archivo.gs` y reemplaza `Reporte.gs` en Apps Script.
+2. Ejecuta `instalarArchivoMensual()` una vez (programa el día 3 de cada mes, 3:00 a.m.).
+3. Para probarlo o hacer la primera limpieza: ejecuta `archivarRegistros()` y revisa el registro de ejecución.
+4. Los archivos "Registros AAAA" se crean solos en la misma carpeta de Drive que tu hoja principal.
